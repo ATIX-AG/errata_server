@@ -6,15 +6,23 @@ import aiofiles
 import simplejson
 import hashlib
 
+from typing import (
+    Any,
+    List,
+    Set,
+    Tuple,
+)
+
 from urllib.parse import urlparse, parse_qs
 
 from twisted.web import server
 from twisted.web.resource import Resource
+from twisted.web.http import Request
 from twisted.internet import inotify
 from twisted.python import filepath, log
 
 
-async def read_json(filename):
+async def read_json(filename: str) -> Any:
     json_data = []
     async with aiofiles.open(filename, 'r') as fd:
         async for line in fd:
@@ -25,16 +33,16 @@ async def read_json(filename):
 class Endpoint(Resource):
     isLeaf = True
 
-    def __init__(self, operatingsystem, datapath, *args, **kwargs):
+    def __init__(self, operatingsystem: str, datapath: str, *args, **kwargs) -> None:
         super(Endpoint, self).__init__(*args, **kwargs)
 
         # initialize in memory database
         self.operatingsystem = operatingsystem
         self.datapath = datapath
         self.data = None
-        self.releases = set()
-        self.components = set()
-        self.architectures = set()
+        self.releases: set = set()
+        self.components: set = set()
+        self.architectures: set = set()
         self.data_lock = asyncio.Lock()
         self.data_semaphore = asyncio.Semaphore(2)
         self.etag = None
@@ -49,7 +57,7 @@ class Endpoint(Resource):
 
     # non-blocking coroutines
 
-    async def get(self, request):
+    async def get(self, request: Request) -> None:
         try:
             if self.data is None:
                 request.setResponseCode(503)
@@ -111,7 +119,7 @@ class Endpoint(Resource):
         finally:
             request.finish()
 
-    async def read_data(self):
+    async def read_data(self) -> None:
         if self.data_semaphore.locked():
             return
         async with self.data_semaphore:
@@ -138,7 +146,7 @@ class Endpoint(Resource):
 
     # This is supposed to throw an exception if something is wrong
     @staticmethod
-    async def validate_data(data):
+    async def validate_data(data: str) -> None:
         assert isinstance(data, list)
         for item in data:
             assert isinstance(item, dict)
@@ -151,10 +159,10 @@ class Endpoint(Resource):
         return data
 
     @staticmethod
-    async def validate_config(config):
-        releases = set()
-        components = set()
-        architectures = set()
+    async def validate_config(config: Any) -> Tuple[Set, Set, Set]:
+        releases: set = set()
+        components: set = set()
+        architectures: set = set()
         assert isinstance(config, dict)
         releases_dict = config['releases']
         assert isinstance(releases_dict, dict)
@@ -175,11 +183,11 @@ class Endpoint(Resource):
 
     # Callbacks
 
-    def render_GET(self, request):
+    def render_GET(self, request: Request) -> server.NOT_DONE_YET:
         asyncio.ensure_future(self.get(request))
         return server.NOT_DONE_YET
 
-    def notify(self, _, filepath, mask):
+    def notify(self, _, path: filepath.FilePath, mask: int) -> None:
         if filepath.path.endswith("{}_config.json".format(self.operatingsystem).encode('utf8')):
             log.msg("event {} on {}".format(', '.join(inotify.humanReadableMask(mask)), filepath.path))
             asyncio.ensure_future(self.read_data())
