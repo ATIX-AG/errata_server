@@ -45,7 +45,7 @@ class Endpoint(Resource):
         self.notifier.watch(filepath.FilePath(datapath), callbacks=[self.notify])
 
         # read initial data
-        self.read_task = asyncio.create_task(self.read_data())
+        self.read_task = asyncio.ensure_future(self.read_data())
 
     # non-blocking coroutines
 
