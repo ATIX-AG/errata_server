@@ -1,0 +1,54 @@
+[
+  {
+    "name": "DSA-1234-1",
+    "title": "base-camp -- security update",
+    "issued": "01 Jan 1000",
+    "affected_source_package": "base-camp",
+    "packages": [
+      {
+        "name": "base-camp",
+        "version": "3.2.1+u1",
+        "architecture": "amd64",
+        "component": "main",
+        "release": "stretch"
+      }
+    ],
+    "description": "A terribly long string to describe what is up.",
+    "cves": [
+      "CVE-1000-1000000"
+    ],
+    "severity": "high",
+    "scope": "remote"
+  },
+  {
+    "name": "DSA-2345-1",
+    "title": "second-base -- security update",
+    "issued": "02 Jan 1000",
+    "affected_source_package": "second-base",
+    "packages": [
+      {
+        "name": "libsecond-base",
+        "version": "2.1-1+u1",
+        "architecture": "amd64",
+        "component": "main",
+        "release": "stretch"
+      },
+      {
+        "name": "second-base-common",
+        "version": "2.2-1+u1",
+        "architecture": "all",
+        "component": "main",
+        "release": "stretch"
+      }
+    ],
+    "description": "Here is something going on, too",
+    "cves": [
+      "CVE-1000-1000001"
+    ],
+    "severity": "not yet assigned",
+    "scope": "local",
+    "dbts_bugs": [
+      10
+    ]
+  }
+]
