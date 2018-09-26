@@ -14,6 +14,14 @@ from twisted.internet import inotify
 from twisted.python import filepath, log
 
 
+async def read_json(filename):
+    json_data = []
+    async with aiofiles.open(filename, 'r') as fd:
+        async for line in fd:
+            json_data.append(line)
+    return simplejson.loads('\n'.join(json_data))
+
+
 class Endpoint(Resource):
     isLeaf = True
 
@@ -24,9 +32,9 @@ class Endpoint(Resource):
         self.operatingsystem = operatingsystem
         self.datapath = datapath
         self.data = None
-        self.releases = set(['stretch', 'wheezy'])
-        self.components = set(['main', 'contrib'])
-        self.architectures = set(['all'])
+        self.releases = set()
+        self.components = set()
+        self.architectures = set()
         self.data_lock = asyncio.Lock()
         self.data_semaphore = asyncio.Semaphore(2)
         self.etag = None
@@ -37,7 +45,7 @@ class Endpoint(Resource):
         self.notifier.watch(filepath.FilePath(datapath), callbacks=[self.notify])
 
         # read initial data
-        asyncio.ensure_future(self.read_data())
+        self.read_task = asyncio.create_task(self.read_data())
 
     # non-blocking coroutines
 
@@ -109,20 +117,19 @@ class Endpoint(Resource):
         async with self.data_semaphore:
             async with self.data_lock:
                 try:
+                    log.msg("Reading config for operatingsystem {}".format(self.operatingsystem))
+                    config_data = await read_json(os.path.join(self.datapath, "{}_config.json".format(self.operatingsystem)))
+                    releases, components, architectures = await self.validate_config(config_data)
+                    log.msg("Found releases: {}; components: {}; architectures: {}".format(releases, components, architectures))
                     log.msg("Reading data for operatingsystem {}".format(self.operatingsystem))
-                    json_data = []
-                    releases = set()
-                    components = set()
-                    architectures = set('all')
-                    hasher = hashlib.sha256()
-                    async with aiofiles.open(os.path.join(self.datapath, "{}_errata.json".format(self.operatingsystem)), 'r') as fd:
-                        async for line in fd:
-                            json_data.append(line)
+                    new_data = await read_json(os.path.join(self.datapath, "{}_errata.json".format(self.operatingsystem)))
                     log.msg("Parsing data for operatingsystem {}".format(self.operatingsystem))
-                    new_data = simplejson.loads('\n'.join(json_data))
-                    hasher.update(simplejson.dumps(new_data).encode('utf8'))
                     await self.validate_data(new_data)
+                    hasher = hashlib.sha256()
+                    hasher.update(simplejson.dumps(config_data).encode('utf8'))
+                    hasher.update(simplejson.dumps(new_data).encode('utf8'))
                     log.msg("Pivoting data for operatingsystem {}".format(self.operatingsystem))
+                    self.releases, self.components, self.architectures = releases, components, architectures
                     self.data = new_data
                     self.etag_base = hasher.hexdigest().encode('utf-8')
                     log.msg("Hash of new data: {}".format(self.etag_base))
@@ -130,7 +137,8 @@ class Endpoint(Resource):
                     log.err("An Exception occurred while reading data for operatingsystem {} ({})".format(self.operatingsystem, e))
 
     # This is supposed to throw an exception if something is wrong
-    async def validate_data(self, data):
+    @staticmethod
+    async def validate_data(data):
         assert isinstance(data, list)
         for item in data:
             assert isinstance(item, dict)
@@ -140,6 +148,30 @@ class Endpoint(Resource):
                 assert isinstance(package['release'], str)
                 assert isinstance(package['component'], str)
                 assert isinstance(package['architecture'], str)
+        return data
+
+    @staticmethod
+    async def validate_config(config):
+        releases = set()
+        components = set()
+        architectures = set()
+        assert isinstance(config, dict)
+        releases_dict = config['releases']
+        assert isinstance(releases_dict, dict)
+        for release in releases_dict.values():
+            assert isinstance(release, dict)
+            assert isinstance(release['components'], list)
+            components.update(release['components'])
+            assert isinstance(release['architectures'], list)
+            architectures.update(release['architectures'])
+        releases.update(releases_dict.keys())
+        for item in releases:
+            assert isinstance(item, str)
+        for item in components:
+            assert isinstance(item, str)
+        for item in architectures:
+            assert isinstance(item, str)
+        return releases, components, architectures
 
     # Callbacks
 

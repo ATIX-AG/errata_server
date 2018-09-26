@@ -1,0 +1,12 @@
+{
+  "releases": {
+    "stretch": {
+      "components": ["main", "contrib", "non-free"],
+      "architectures": ["all", "amd64"]
+    },
+    "buster": {
+      "components": ["main", "contrib"],
+      "architectures": ["all", "ppc64", "armeb"]
+    }
+  }
+}
