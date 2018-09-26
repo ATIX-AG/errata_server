@@ -7,11 +7,14 @@ from unittest.mock import Mock, MagicMock
 from errata_server.api_beta import Endpoint
 
 
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
 class TestApiBeta(object):
 
     @pytest.mark.asyncio
     async def test_validate_config(self):
-        endpoint = Endpoint('debian', os.path.join('tests', 'fixtures'))
+        endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
         await endpoint.read_task
         assert endpoint.etag_base == b'c495526ab95c0959a3d7d858e0055838444c729e03f0be89d6f184227d7c14be'
 
