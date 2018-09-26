@@ -180,7 +180,6 @@ class Endpoint(Resource):
         return server.NOT_DONE_YET
 
     def notify(self, _, filepath, mask):
-        log.msg("event {} on {}".format(', '.join(inotify.humanReadableMask(mask)), filepath))
-
-        # TODO: Be more specific
-        asyncio.ensure_future(self.read_data())
+        if filepath.path.endswith("{}_config.json".format(self.operatingsystem).encode('utf8')):
+            log.msg("event {} on {}".format(', '.join(inotify.humanReadableMask(mask)), filepath.path))
+            asyncio.ensure_future(self.read_data())
