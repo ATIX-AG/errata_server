@@ -11,23 +11,32 @@ from twisted.web.resource import NoResource
 from twisted.internet import reactor, endpoints
 from twisted.python import log
 
-from errata_server.api_beta import Endpoint
+from errata_server import api_beta
+from errata_server import api_v1
 
 
 @click.command()
 @click.option('--port', help='Port number to serve on', default=8015, type=int)
 @click.option('--datapath', help='Path where the data files are located', default='/srv/errata', type=str)
-def main(port, datapath):
+@click.option('--beta/--no-beta', help='Serve beta api', default=False)
+def main(port, datapath, beta):
     # build document tree
     root = NoResource()
     dep = NoResource()
     root.putChild(b'dep', dep)
     api = NoResource()
     dep.putChild(b'api', api)
-    apibeta = NoResource()
-    api.putChild(b'beta', apibeta)
-    apibeta.putChild(b'debian', Endpoint('debian', datapath))  # served at /api/beta/debian
-    apibeta.putChild(b'ubuntu', Endpoint('ubuntu', datapath))  # served at /api/beta/ubuntu
+    # --- beta api ---
+    if beta:
+        apibeta = NoResource()
+        api.putChild(b'beta', apibeta)
+        apibeta.putChild(b'debian', api_beta.Endpoint('debian', datapath))  # served at /api/beta/debian
+        apibeta.putChild(b'ubuntu', api_beta.Endpoint('ubuntu', datapath))  # served at /api/beta/ubuntu
+    # --- api v1 ---
+    apiv1 = NoResource()
+    api.putChild(b'v1', apiv1)
+    apiv1.putChild(b'debian', api_v1.Endpoint('debian', datapath))  # served at /api/v1/debian
+    apiv1.putChild(b'ubuntu', api_v1.Endpoint('ubuntu', datapath))  # served at /api/v1/ubuntu
 
     # run server
     log.startLogging(sys.stdout)
