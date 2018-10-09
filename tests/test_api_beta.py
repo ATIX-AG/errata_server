@@ -47,7 +47,6 @@ class TestApiBeta(object):
     @pytest.mark.asyncio
     async def test_get2(self):
         endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
-        await endpoint.read_task
         request = Mock()
         request.uri = b'/dep/api/beta/debian?releases=stretch'
         request.setETag.return_value = False
@@ -57,7 +56,6 @@ class TestApiBeta(object):
     @pytest.mark.asyncio
     async def test_get_with_alias(self):
         endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
-        await endpoint.read_task
         request = Mock()
         request.uri = b'/dep/api/beta/debian?releases=stretch/updates'
         request.setETag.return_value = False
@@ -67,7 +65,6 @@ class TestApiBeta(object):
     @pytest.mark.asyncio
     async def test_get_invalid(self):
         endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
-        await endpoint.read_task
         request = Mock()
         request.uri = b'/dep/api/beta/debian?releases=blue'
         request.setETag.return_value = False
