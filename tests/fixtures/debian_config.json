@@ -1,6 +1,7 @@
 {
   "releases": {
     "stretch": {
+      "aliases": ["stretch/updates"],
       "components": ["main", "contrib", "non-free"],
       "architectures": ["all", "amd64"]
     },
