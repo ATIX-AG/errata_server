@@ -63,3 +63,13 @@ class TestApiBeta(object):
         request.setETag.return_value = False
         await endpoint.get(request)
         request.write.assert_called_with(self.GET_DATA)
+
+    @pytest.mark.asyncio
+    async def test_get_invalid(self):
+        endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
+        await endpoint.read_task
+        request = Mock()
+        request.uri = b'/dep/api/beta/debian?releases=blue'
+        request.setETag.return_value = False
+        await endpoint.get(request)
+        request.write.assert_called_with(b'Bad request')
