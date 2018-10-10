@@ -19,7 +19,7 @@ from errata_server import api_v1
 @click.option('--port', help='Port number to serve on', default=8015, type=int)
 @click.option('--datapath', help='Path where the data files are located', default='/srv/errata', type=str)
 @click.option('--beta/--no-beta', help='Serve beta api', default=False)
-def main(port: int, datapath: str, beta: bool):
+def main(port: int, datapath: str, beta: bool) -> None:
     # build document tree
     root = NoResource()
     dep = NoResource()

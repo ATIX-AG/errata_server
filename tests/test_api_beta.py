@@ -28,45 +28,53 @@ class TestApiBeta(object):
         b', "severity": "not yet assigned", "scope": "local", "dbts_bugs": ['\
         b'10]}]'
 
+    def setup(self):
+        self.endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
+
     @pytest.mark.asyncio
     async def test_validate_config(self):
-        endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
-        await endpoint.read_task
-        assert endpoint.etag_base == b'abbd247d7efc27b5d2d487387aee289edb1bf26c043d3232a12f34a9f0c16ab5'
+        await self.endpoint.read_task
+        assert self.endpoint.etag_base == b'abbd247d7efc27b5d2d487387aee289edb1bf26c043d3232a12f34a9f0c16ab5'
 
     @pytest.mark.asyncio
-    async def test_get(self):
-        this = Mock()
-        this.data = [{'name': 'DSA-1234-5', 'packages': [{'architectures': 'all'}]}]
-        this.etag_base = None
-        request = Mock()
-        request.uri = b'/dep/api/beta/debian'
-        await Endpoint.get(this, request)
-        request.write.assert_called_with(b'[{"name": "DSA-1234-5", "packages": [{"architectures": "all"}]}]')
-
-    @pytest.mark.asyncio
-    async def test_get2(self):
-        endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
+    async def test_get_no_data(self):
+        await self.endpoint.read_task
+        self.endpoint.data = None
         request = Mock()
         request.uri = b'/dep/api/beta/debian?releases=stretch'
         request.setETag.return_value = False
-        await endpoint.get(request)
+        await self.endpoint.get(request)
+        request.write.assert_called_with(b'Service temporarily unavailable')
+
+    @pytest.mark.asyncio
+    async def test_get(self):
+        request = Mock()
+        request.uri = b'/dep/api/beta/debian?releases=stretch'
+        request.setETag.return_value = False
+        await self.endpoint.get(request)
         request.write.assert_called_with(self.GET_DATA)
 
     @pytest.mark.asyncio
     async def test_get_with_alias(self):
-        endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
         request = Mock()
         request.uri = b'/dep/api/beta/debian?releases=stretch/updates'
         request.setETag.return_value = False
-        await endpoint.get(request)
+        await self.endpoint.get(request)
         request.write.assert_called_with(self.GET_DATA)
 
     @pytest.mark.asyncio
     async def test_get_invalid(self):
-        endpoint = Endpoint('debian', os.path.join(TEST_DIR, 'fixtures'))
         request = Mock()
         request.uri = b'/dep/api/beta/debian?releases=blue'
         request.setETag.return_value = False
-        await endpoint.get(request)
+        await self.endpoint.get(request)
         request.write.assert_called_with(b'Bad request')
+
+    @pytest.mark.asyncio
+    async def test_get_etag(self):
+        request = Mock()
+        request.uri = b'/dep/api/beta/debian?releases=stretch'
+        request.setETag.return_value = True
+        await self.endpoint.get(request)
+        request.write.assert_not_called()
+        request.setETag.assert_called_with(b'c45b9b107d88ae65b41e4fb186fe4e83e6df9e0005724dfdbc352ebfff1e56a8')
