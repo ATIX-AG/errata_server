@@ -78,22 +78,26 @@ class Endpoint(Resource):
                     # Etag matched; do not send a body
                     return
 
+            # make sure we have a list of entries without leading or trailing whitespaces
+            def sanitize_query_list(querylist):
+                return set([entry.strip() for entry in b','.join(querylist).decode('utf-8').split(',')])
+
             # decode query parameter
             releases = None
             if b'releases' in query:
-                releases = set(self.release_aliases[release] for release in b','.join(query[b'releases']).decode('utf-8').split(','))
+                releases = set(self.release_aliases[release] for release in sanitize_query_list(query[b'releases']))
                 if releases - self.releases:
                     raise Exception('Invalid query for releases')
 
             components = None
             if b'components' in query:
-                components = set(b','.join(query[b'components']).decode('utf-8').split(','))
+                components = sanitize_query_list(query[b'components'])
                 if components - self.components:
                     raise Exception('Invalid query for components')
 
             architectures = None
             if b'architectures' in query:
-                architectures = set(b','.join(query[b'architectures']).decode('utf-8').split(','))
+                architectures = sanitize_query_list(query[b'architectures'])
                 architectures.add('all')
                 if set(architectures) - self.architectures:
                     raise Exception('Invalid query for architectures')
