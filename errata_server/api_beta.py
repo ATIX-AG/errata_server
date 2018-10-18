@@ -62,9 +62,11 @@ class Endpoint(Resource):
     async def get(self, request: Request) -> None:
         try:
             if self.data is None:
-                request.setResponseCode(503)
-                request.write(b'Service temporarily unavailable')
-                return
+                await asyncio.wait_for(self.read_task, timeout=30)
+                if self.data is None:
+                    request.setResponseCode(503)
+                    request.write(b'Service temporarily unavailable')
+                    return
 
             raw_query = urlparse(request.uri).query
             query = parse_qs(raw_query)
