@@ -63,12 +63,20 @@ class TestApiBeta(object):
         request.write.assert_called_with(self.GET_DATA)
 
     @pytest.mark.asyncio
+    async def test_get_with_whitespace(self):
+        request = Mock()
+        request.uri = b'/dep/api/beta/debian?releases=blue, stretch'
+        request.setETag.return_value = False
+        await self.endpoint.get(request)
+        request.write.assert_called_with(self.GET_DATA)
+
+    @pytest.mark.asyncio
     async def test_get_invalid(self):
         request = Mock()
         request.uri = b'/dep/api/beta/debian?releases=blue'
         request.setETag.return_value = False
         await self.endpoint.get(request)
-        request.write.assert_called_with(b'Bad request')
+        request.write.assert_called_with(b'[]')
 
     @pytest.mark.asyncio
     async def test_get_etag(self):

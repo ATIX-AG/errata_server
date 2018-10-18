@@ -31,6 +31,11 @@ async def read_json(filename: str) -> Any:
     return simplejson.loads('\n'.join(json_data))
 
 
+# make sure we have a list of entries without leading or trailing whitespaces
+def sanitize_query_list(query_list: List[bytearray]) -> Set[str]:
+    return set(entry.strip() for entry in b','.join(query_list).decode('utf-8').split(','))
+
+
 class Endpoint(Resource):
     isLeaf = True
 
@@ -83,31 +88,28 @@ class Endpoint(Resource):
             # decode query parameter
             releases = None
             if b'releases' in query:
-                releases = set(self.release_aliases[release] for release in b','.join(query[b'releases']).decode('utf-8').split(','))
-                if releases - self.releases:
-                    raise Exception('Invalid query for releases')
+                releases = set(self.release_aliases.get(release) for release in sanitize_query_list(query[b'releases']))
+                releases &= self.releases
 
             components = None
             if b'components' in query:
-                components = set(b','.join(query[b'components']).decode('utf-8').split(','))
-                if components - self.components:
-                    raise Exception('Invalid query for components')
+                components = sanitize_query_list(query[b'components'])
+                components &= self.components
 
             architectures = None
             if b'architectures' in query:
-                architectures = set(b','.join(query[b'architectures']).decode('utf-8').split(','))
+                architectures = sanitize_query_list(query[b'architectures'])
                 architectures.add('all')
-                if set(architectures) - self.architectures:
-                    raise Exception('Invalid query for architectures')
+                architectures &= self.architectures
 
             # generate filtered results
             def transform(item):
                 result = item.copy()
-                if releases:
+                if releases is not None:
                     result['packages'] = [package for package in result['packages'] if package['release'] in releases]
-                if components:
+                if components is not None:
                     result['packages'] = [package for package in result['packages'] if package['component'] in components]
-                if architectures:
+                if architectures is not None:
                     result['packages'] = [package for package in result['packages'] if package['architecture'] in architectures]
                 return result, bool(result['packages'])
 

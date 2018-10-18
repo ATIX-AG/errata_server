@@ -31,6 +31,11 @@ async def read_json(filename: str) -> Any:
     return simplejson.loads('\n'.join(json_data))
 
 
+# make sure we have a list of entries without leading or trailing whitespaces
+def sanitize_query_list(query_list: List[bytearray]) -> Set[str]:
+    return set(entry.strip() for entry in b','.join(query_list).decode('utf-8').split(','))
+
+
 class Endpoint(Resource):
     isLeaf = True
 
@@ -62,9 +67,11 @@ class Endpoint(Resource):
     async def get(self, request: Request) -> None:
         try:
             if self.data is None:
-                request.setResponseCode(503)
-                request.write(b'Service temporarily unavailable')
-                return
+                await asyncio.wait_for(self.read_task, timeout=30)
+                if self.data is None:
+                    request.setResponseCode(503)
+                    request.write(b'Service temporarily unavailable')
+                    return
 
             raw_query = urlparse(request.uri).query
             query = parse_qs(raw_query)
@@ -78,38 +85,31 @@ class Endpoint(Resource):
                     # Etag matched; do not send a body
                     return
 
-            # make sure we have a list of entries without leading or trailing whitespaces
-            def sanitize_query_list(querylist):
-                return set([entry.strip() for entry in b','.join(querylist).decode('utf-8').split(',')])
-
             # decode query parameter
             releases = None
             if b'releases' in query:
-                releases = set(self.release_aliases[release] for release in sanitize_query_list(query[b'releases']))
-                if releases - self.releases:
-                    raise Exception('Invalid query for releases')
+                releases = set(self.release_aliases.get(release) for release in sanitize_query_list(query[b'releases']))
+                releases &= self.releases
 
             components = None
             if b'components' in query:
                 components = sanitize_query_list(query[b'components'])
-                if components - self.components:
-                    raise Exception('Invalid query for components')
+                components &= self.components
 
             architectures = None
             if b'architectures' in query:
                 architectures = sanitize_query_list(query[b'architectures'])
                 architectures.add('all')
-                if set(architectures) - self.architectures:
-                    raise Exception('Invalid query for architectures')
+                architectures &= self.architectures
 
             # generate filtered results
             def transform(item):
                 result = item.copy()
-                if releases:
+                if releases is not None:
                     result['packages'] = [package for package in result['packages'] if package['release'] in releases]
-                if components:
+                if components is not None:
                     result['packages'] = [package for package in result['packages'] if package['component'] in components]
-                if architectures:
+                if architectures is not None:
                     result['packages'] = [package for package in result['packages'] if package['architecture'] in architectures]
                 return result, bool(result['packages'])
 
