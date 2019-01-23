@@ -1,0 +1,9 @@
+# Blacklist everything:
+*
+
+# Now whitelist the specific files we want:
+!LICENSE
+!README.md
+!errata_server
+!setup.py
+!tests
