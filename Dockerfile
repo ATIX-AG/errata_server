@@ -3,4 +3,4 @@ RUN apk --no-cache add build-base
 WORKDIR /errata_server
 COPY . /errata_server/
 RUN pip install .
-CMD errata_server
+ENTRYPOINT ["/usr/local/bin/errata_server"]
