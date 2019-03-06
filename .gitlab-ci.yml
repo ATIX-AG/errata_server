@@ -1,0 +1,8 @@
+unittest:
+  tags:
+    - docker
+  image: python:3.7-alpine
+  before_script:
+    - apk add --no-cache build-base
+  script:
+    - make lint static coverage

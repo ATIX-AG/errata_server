@@ -1,0 +1,6 @@
+-e .
+pycodestyle
+mypy
+pytest
+pytest-asyncio
+coverage
