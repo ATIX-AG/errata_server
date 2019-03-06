@@ -1,0 +1,28 @@
+name: Unit tests
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.9"
+
+        # test_requirements contains tools needed for flake8, etc.
+      - name: Install requirements
+        run: |
+          pip3 install -r test_requirements.txt
+          pip3 freeze > test_requirements.freeze
+      - name: Run unit tests
+        run: |
+          pytest tests
+          coverage run --source errata_server `which pytest` tests
+          coverage report
+
