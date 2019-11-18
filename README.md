@@ -20,6 +20,9 @@ It is intended to run within a Docker container.
 
 # Quick Start
 
+The default installation method is within a docker container.
+If the errata server must be installed directly, please use the designated puppet-module: https://github.com/chrisongthb/puppet-errata_parser
+
 To build the relevant container image use:
 
     docker build -t errata_server:latest .
