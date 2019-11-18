@@ -146,8 +146,9 @@ class Endpoint(Resource):
                     log.msg("Pivoting data for operatingsystem {}".format(self.operatingsystem))
                     self.releases, self.components, self.architectures, self.release_aliases = releases, components, architectures, release_aliases
                     self.data = new_data
-                    self.etag_base = hasher.hexdigest().encode('utf-8')
-                    log.msg("Hash of new data: {}".format(self.etag_base))
+                    decoded_etag_base = hasher.hexdigest()
+                    log.msg("Hash of new data: {}".format(decoded_etag_base))
+                    self.etag_base = decoded_etag_base.encode('utf-8')
                 except Exception as e:
                     log.err("An Exception occurred while reading data for operatingsystem {} ({})".format(self.operatingsystem, e))
 
