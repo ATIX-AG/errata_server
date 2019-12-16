@@ -40,7 +40,7 @@ def main(port: int, datapath: str, beta: bool) -> None:
 
     # run server
     log.startLogging(sys.stdout)
-    endpoints.serverFromString(reactor, "tcp:{}".format(port)).listen(server.Site(root))
+    endpoints.serverFromString(reactor, r"tcp:interface=\:\::port={}".format(port)).listen(server.Site(root))
     reactor.run()
 
 
