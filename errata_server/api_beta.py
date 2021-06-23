@@ -26,7 +26,10 @@ from twisted.python import filepath, log
 async def read_json(filename: str) -> Any:
     json_data = []
     async with aiofiles.open(filename, 'r') as fd:
-        async for line in fd:
+        while True:
+            line = await fd.readline()
+            if not line:
+                break
             json_data.append(line)
     return simplejson.loads('\n'.join(json_data))
 
