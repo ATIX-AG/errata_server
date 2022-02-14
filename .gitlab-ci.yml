@@ -1,0 +1,27 @@
+---
+stages:
+  - lint
+  - test
+
+python:
+  stage: lint
+  tags:
+    - docker
+  image: ${CI_REGISTRY}/hub/lint/python:main
+  script:
+    - flake8 --max-line-length=159 --ignore=F821,F401,E402 .
+
+unittest:
+  stage: test
+  tags:
+    - docker
+  image: ${CI_REGISTRY}/hub/python:errata-server-tests
+  before_script:
+    - pip install -r test_requirements.txt
+    - pip freeze > test_requirements.freeze
+    - python --version
+  script:
+    - pytest tests
+    - coverage run --source errata_server `which pytest` tests
+    - coverage report
+...
