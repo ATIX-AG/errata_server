@@ -32,11 +32,13 @@ def main(port: int, datapath: str, beta: bool) -> None:
         api.putChild(b'beta', apibeta)
         apibeta.putChild(b'debian', api_beta.Endpoint('debian', datapath))  # served at /api/beta/debian
         apibeta.putChild(b'ubuntu', api_beta.Endpoint('ubuntu', datapath))  # served at /api/beta/ubuntu
+        apibeta.putChild(b'ubuntu-esm', api_beta.Endpoint('ubuntu-esm', datapath))  # served at /api/beta/ubuntu-esm
     # --- api v1 ---
     apiv1 = NoResource()
     api.putChild(b'v1', apiv1)
     apiv1.putChild(b'debian', api_v1.Endpoint('debian', datapath))  # served at /api/v1/debian
     apiv1.putChild(b'ubuntu', api_v1.Endpoint('ubuntu', datapath))  # served at /api/v1/ubuntu
+    apiv1.putChild(b'ubuntu-esm', api_v1.Endpoint('ubuntu-esm', datapath))  # served at /api/v1/ubuntu-esm
 
     # run server
     log.startLogging(sys.stdout)
