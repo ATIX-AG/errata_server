@@ -158,15 +158,15 @@ class Endpoint(Resource):
     # This is supposed to throw an exception if something is wrong
     @staticmethod
     async def validate_data(data: str) -> None:
-        assert isinstance(data, list)
+        assert isinstance(data, list), "Errata list should be a list"
         for item in data:
-            assert isinstance(item, dict)
-            assert isinstance(item['packages'], list)
+            assert isinstance(item, dict), "Erratum should be a dict"
+            assert isinstance(item['packages'], list), "Erratum must have a 'packages' list"
             for package in item['packages']:
-                assert isinstance(package, dict)
-                assert isinstance(package['release'], str)
-                assert isinstance(package['component'], str)
-                assert isinstance(package['architecture'], str)
+                assert isinstance(package, dict), "Erratum's package must be a dict"
+                assert isinstance(package['release'], str), "Erratum's package must have 'release'"
+                assert isinstance(package['component'], str), "Erratum's package must have 'component'"
+                assert isinstance(package['architecture'], str), "Erratum's package must have 'architecture'"
         return data
 
     @staticmethod
@@ -175,29 +175,29 @@ class Endpoint(Resource):
         components: Set = set()
         architectures: Set = set()
         release_aliases: Dict = {}
-        assert isinstance(config, dict)
+        assert isinstance(config, dict), "Config must be a dict"
         releases_dict = config['releases']
-        assert isinstance(releases_dict, dict)
+        assert isinstance(releases_dict, dict), "'releases' must be a dict"
         for release_name, release in releases_dict.items():
-            assert isinstance(release_name, str)
-            assert isinstance(release, dict)
+            assert isinstance(release_name, str), "releases-key must be a string"
+            assert isinstance(release, dict), "releases-value must be a dict"
             aliases = release.get('aliases', [])
-            assert isinstance(aliases, list)
+            assert isinstance(aliases, list), "'aliases' must be a list"
             for alias in aliases:
-                assert isinstance(alias, str)
-                assert alias not in release_aliases
+                assert isinstance(alias, str), "'aliases'-value must be a string"
+                assert alias not in release_aliases, "'aliases'-value must not exist twice"
                 release_aliases[alias] = release_name
             # Make the map idempotent for convenience
             release_aliases[release_name] = release_name
-            assert isinstance(release['components'], list)
+            assert isinstance(release['components'], list), "'components' must be a list"
             components.update(release['components'])
-            assert isinstance(release['architectures'], list)
+            assert isinstance(release['architectures'], list), "'architectures' must be a list"
             architectures.update(release['architectures'])
         releases.update(releases_dict.keys())
         for item in components:
-            assert isinstance(item, str)
+            assert isinstance(item, str), "'components'-value must be a string"
         for item in architectures:
-            assert isinstance(item, str)
+            assert isinstance(item, str), "'architectures'-value must be a string"
         return releases, components, architectures, release_aliases
 
     # Callbacks
