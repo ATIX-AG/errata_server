@@ -17,7 +17,6 @@ jobs:
 
         # test_requirements contains tools needed for flake8, etc.
       - name: Install requirements
-        run: pip3 install flake8==3.8.4
+        run: pip3 install -r test_requirements.txt
       - name: Run linting test
-        run: flake8 --max-line-length=159 --ignore=F821,F401,E402 .
-
+        run: flake8 .

@@ -9,7 +9,8 @@ python:
     - docker
   image: ${CI_REGISTRY}/hub/lint/python:main
   script:
-    - flake8 --max-line-length=159 --ignore=F821,F401,E402 .
+    - pip install -r test_requirements.txt
+    - flake8 .
 
 unittest:
   stage: test
