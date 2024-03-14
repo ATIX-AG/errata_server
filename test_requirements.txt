@@ -3,3 +3,4 @@ pycodestyle
 pytest
 pytest-asyncio==0.14.0
 coverage
+flake8==3.8.4

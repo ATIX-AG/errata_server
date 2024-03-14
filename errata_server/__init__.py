@@ -1,1 +1,1 @@
-from .errata_server import main
+from .errata_server import main  # noqa: F401
