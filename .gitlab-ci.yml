@@ -3,16 +3,20 @@ stages:
   - lint
   - test
 
+variables:
+  PYTHON_VERSION: "3.11"
+  PYTHON_IMAGE: "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:${PYTHON_VERSION}-alpine3.18"
+
 python:
   stage: lint
-  image: ${CI_REGISTRY}/hub/lint/python:main
+  image: "${PYTHON_IMAGE}"
   script:
     - pip install -r test_requirements.txt
     - flake8 .
 
 unittest:
   stage: test
-  image: ${CI_REGISTRY}/hub/python:errata-server-tests
+  image: "${PYTHON_IMAGE}"
   before_script:
     - pip install -r test_requirements.txt
     - pip freeze > test_requirements.freeze
