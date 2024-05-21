@@ -5,8 +5,6 @@ stages:
 
 python:
   stage: lint
-  tags:
-    - docker
   image: ${CI_REGISTRY}/hub/lint/python:main
   script:
     - pip install -r test_requirements.txt
@@ -14,8 +12,6 @@ python:
 
 unittest:
   stage: test
-  tags:
-    - docker
   image: ${CI_REGISTRY}/hub/python:errata-server-tests
   before_script:
     - pip install -r test_requirements.txt
