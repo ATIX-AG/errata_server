@@ -5,22 +5,25 @@ stages:
 
 variables:
   PYTHON_VERSION: "3.11"
-  PYTHON_IMAGE: "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:${PYTHON_VERSION}-alpine3.18"
+  PYTHON_IMAGE: "python:${PYTHON_VERSION}"
 
-python:
-  stage: lint
-  image: "${PYTHON_IMAGE}"
-  script:
-    - pip install -r test_requirements.txt
-    - flake8 .
 
-unittest:
-  stage: test
-  image: "${PYTHON_IMAGE}"
+.common:
+  image: ${PYTHON_IMAGE}
   before_script:
     - pip install -r test_requirements.txt
     - pip freeze > test_requirements.freeze
     - python --version
+
+python:
+  extends: .common
+  stage: lint
+  script:
+    - flake8 .
+
+unittest:
+  extends: .common
+  stage: test
   script:
     - pytest tests
     - coverage run --source errata_server `which pytest` tests
