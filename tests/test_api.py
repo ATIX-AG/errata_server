@@ -1,5 +1,6 @@
 import pytest
 import os
+import asyncio
 
 from unittest.mock import Mock
 
@@ -57,6 +58,7 @@ async def test_get(endpoint):
     request.setETag.return_value = False
     await endpoint.get(request)
     request.write.assert_called_with(GET_DATA)
+    request.setHeader.assert_any_call(b'cache-control', b'public, no-cache')
 
 
 @pytest.mark.asyncio
@@ -93,4 +95,37 @@ async def test_get_etag(endpoint):
     request.setETag.return_value = True
     await endpoint.get(request)
     request.write.assert_not_called()
+    request.setHeader.assert_any_call(b'cache-control', b'public, no-cache')
     request.setETag.assert_called_with(b'c45b9b107d88ae65b41e4fb186fe4e83e6df9e0005724dfdbc352ebfff1e56a8')
+
+
+@pytest.mark.asyncio
+async def test_notify_ignores_unrelated_file(endpoint, monkeypatch):
+    await endpoint.read_task
+
+    ensure_future = Mock()
+    monkeypatch.setattr(asyncio, 'ensure_future', ensure_future)
+    endpoint.read_data = Mock(return_value=object())
+
+    path = Mock()
+    path.path = b'/srv/errata/unrelated.json'
+    endpoint.notify(None, path, 0)
+
+    ensure_future.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notify_reloads_errata_file(endpoint, monkeypatch):
+    await endpoint.read_task
+
+    ensure_future = Mock()
+    monkeypatch.setattr(asyncio, 'ensure_future', ensure_future)
+    reload_marker = object()
+    endpoint.read_data = Mock(return_value=reload_marker)
+
+    path = Mock()
+    path.path = b'/srv/errata/debian_errata.json'
+    endpoint.notify(None, path, 0)
+
+    endpoint.read_data.assert_called_once_with()
+    ensure_future.assert_called_once_with(reload_marker)

@@ -79,6 +79,10 @@ class Endpoint(Resource):
             raw_query = urlparse(request.uri).query
             query = parse_qs(raw_query)
 
+            # Allow clients and reverse proxies to cache the response, but
+            # require revalidation so changes are picked up immediately.
+            request.setHeader(b'cache-control', b'public, no-cache')
+
             # Check for etag matching
             if self.etag_base:
                 hasher = hashlib.sha256()
@@ -106,17 +110,29 @@ class Endpoint(Resource):
                 architectures &= self.architectures
 
             # generate filtered results
-            def transform(item):
-                result = item.copy()
-                if releases is not None:
-                    result['packages'] = [package for package in result['packages'] if package['release'] in releases]
-                if components is not None:
-                    result['packages'] = [package for package in result['packages'] if package['component'] in components]
-                if architectures is not None:
-                    result['packages'] = [package for package in result['packages'] if package['architecture'] in architectures]
-                return result, bool(result['packages'])
+            def matches(package):
+                if releases is not None and package['release'] not in releases:
+                    return False
+                if components is not None and package['component'] not in components:
+                    return False
+                if architectures is not None and package['architecture'] not in architectures:
+                    return False
+                return True
 
-            result = [value for value, pred in map(transform, self.data) if pred]
+            result = []
+            for item in self.data:
+                packages = [
+                    package
+                    for package in item['packages']
+                    if matches(package)
+                ]
+
+                if not packages:
+                    continue
+
+                filtered_item = item.copy()
+                filtered_item['packages'] = packages
+                result.append(filtered_item)
 
             # deliver results
             request.setHeader(b'content-type', b'application/json; charset=utf-8')
@@ -207,6 +223,11 @@ class Endpoint(Resource):
         return server.NOT_DONE_YET
 
     def notify(self, _, path: filepath.FilePath, mask: int) -> None:
-        if path.path.endswith("{}_config.json".format(self.operatingsystem).encode('utf8')):
+        watched_files = (
+            "{}_config.json".format(self.operatingsystem).encode('utf8'),
+            "{}_errata.json".format(self.operatingsystem).encode('utf8'),
+        )
+
+        if path.path.endswith(watched_files):
             log.msg("event {} on {}".format(', '.join(inotify.humanReadableMask(mask)), path.path))
             asyncio.ensure_future(self.read_data())
