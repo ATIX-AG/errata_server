@@ -5,11 +5,17 @@ import asyncio
 import aiofiles
 import simplejson
 import hashlib
+from threading import Condition, Semaphore
+
+from cachetools import LRUCache, cached
 
 from typing import (
+    AbstractSet,
     Any,
     Dict,
+    FrozenSet,
     List,
+    Optional,
     Set,
     Tuple,
 )
@@ -39,6 +45,33 @@ def sanitize_query_list(query_list: List[bytearray]) -> Set[str]:
     return set(entry.strip() for entry in b','.join(query_list).decode('utf-8').split(','))
 
 
+RESPONSE_CACHE_MAX_BYTES = int(os.environ.get(
+    'ERRATA_RESPONSE_CACHE_MAX_BYTES',
+    128 * 1024 * 1024,
+))
+MAX_CONCURRENT_RESPONSE_BUILDS = int(os.environ.get(
+    'ERRATA_MAX_CONCURRENT_RESPONSE_BUILDS',
+    2,
+))
+
+
+def response_cache_key(
+        revision: Optional[bytes],
+        releases: Optional[FrozenSet[str]],
+        components: Optional[FrozenSet[str]],
+        architectures: Optional[FrozenSet[str]],
+        _data: List[Dict[str, Any]],
+) -> Tuple[
+    Optional[bytes],
+    Optional[FrozenSet[str]],
+    Optional[FrozenSet[str]],
+    Optional[FrozenSet[str]],
+]:
+    # data is intentionally excluded. revision changes whenever the loaded
+    # config/errata data changes and therefore makes old entries unreachable
+    return revision, releases, components, architectures
+
+
 class Endpoint(Resource):
     isLeaf = True
 
@@ -56,6 +89,18 @@ class Endpoint(Resource):
         self.data_lock = asyncio.Lock()
         self.data_semaphore = asyncio.Semaphore(2)
         self.etag = None
+        self.response_cache = LRUCache(
+            maxsize=RESPONSE_CACHE_MAX_BYTES,
+            getsizeof=len,
+        )
+        self.response_cache_condition = Condition()
+        self.response_build_slots = Semaphore(MAX_CONCURRENT_RESPONSE_BUILDS)
+        self.cached_build_response = cached(
+            cache=self.response_cache,
+            key=response_cache_key,
+            condition=self.response_cache_condition,
+            info=True,
+        )(self.build_response)
 
         # set up data directory notifier
         self.notifier = inotify.INotify()
@@ -109,7 +154,30 @@ class Endpoint(Resource):
                 architectures.add('all')
                 architectures &= self.architectures
 
-            # generate filtered results
+            body = await self.get_response_body(
+                releases,
+                components,
+                architectures,
+            )
+
+            request.setHeader(b'content-type', b'application/json; charset=utf-8')
+            request.write(body)
+        except Exception as e:
+            log.err("An exception occured while handling request ({})".format(e))
+            request.setResponseCode(400)
+            request.write('Bad request'.encode('utf-8'))
+        finally:
+            request.finish()
+
+    def build_response(
+        self,
+        revision: Optional[bytes],
+        releases: Optional[FrozenSet[str]],
+        components: Optional[FrozenSet[str]],
+        architectures: Optional[FrozenSet[str]],
+        data: List[Dict[str, Any]],
+    ) -> bytes:
+        with self.response_build_slots:
             def matches(package):
                 if releases is not None and package['release'] not in releases:
                     return False
@@ -120,7 +188,7 @@ class Endpoint(Resource):
                 return True
 
             result = []
-            for item in self.data:
+            for item in data:
                 packages = [
                     package
                     for package in item['packages']
@@ -134,15 +202,28 @@ class Endpoint(Resource):
                 filtered_item['packages'] = packages
                 result.append(filtered_item)
 
-            # deliver results
-            request.setHeader(b'content-type', b'application/json; charset=utf-8')
-            request.write(simplejson.dumps(result).encode('utf-8'))
-        except Exception as e:
-            log.err("An exception occurred while handling request ({})".format(e))
-            request.setResponseCode(400)
-            request.write('Bad request'.encode('utf-8'))
-        finally:
-            request.finish()
+            return simplejson.dumps(result).encode('utf-8')
+
+    async def get_response_body(
+        self,
+        releases: Optional[AbstractSet[str]],
+        components: Optional[AbstractSet[str]],
+        architectures: Optional[AbstractSet[str]],
+    ) -> bytes:
+        revision = self.etag_base
+        data = self.data
+        releases = frozenset(releases) if releases is not None else None
+        components = frozenset(components) if components is not None else None
+        architectures = frozenset(architectures) if architectures is not None else None
+
+        return await asyncio.to_thread(
+            self.cached_build_response,
+            revision,
+            releases,
+            components,
+            architectures,
+            data,
+        )
 
     async def read_data(self) -> None:
         if self.data_semaphore.locked():
@@ -168,6 +249,7 @@ class Endpoint(Resource):
                     decoded_etag_base = hasher.hexdigest()
                     log.msg("Hash of new data: {}".format(decoded_etag_base))
                     self.etag_base = decoded_etag_base.encode('utf-8')
+                    self.cached_build_response.cache_clear()
                 except Exception as e:
                     log.err("An Exception occurred while reading data for operatingsystem {} ({})".format(self.operatingsystem, e))
 
@@ -223,11 +305,8 @@ class Endpoint(Resource):
         return server.NOT_DONE_YET
 
     def notify(self, _, path: filepath.FilePath, mask: int) -> None:
-        watched_files = (
-            "{}_config.json".format(self.operatingsystem).encode('utf8'),
-            "{}_errata.json".format(self.operatingsystem).encode('utf8'),
-        )
-
-        if path.path.endswith(watched_files):
+        if path.path.endswith(
+            "{}_config.json".format(self.operatingsystem).encode('utf8')
+        ):
             log.msg("event {} on {}".format(', '.join(inotify.humanReadableMask(mask)), path.path))
             asyncio.ensure_future(self.read_data())

@@ -115,7 +115,7 @@ async def test_notify_ignores_unrelated_file(endpoint, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_notify_reloads_errata_file(endpoint, monkeypatch):
+async def test_notify_reloads_config_file(endpoint, monkeypatch):
     await endpoint.read_task
 
     ensure_future = Mock()
@@ -124,8 +124,60 @@ async def test_notify_reloads_errata_file(endpoint, monkeypatch):
     endpoint.read_data = Mock(return_value=reload_marker)
 
     path = Mock()
-    path.path = b'/srv/errata/debian_errata.json'
+    path.path = b'/srv/errata/debian_config.json'
     endpoint.notify(None, path, 0)
 
     endpoint.read_data.assert_called_once_with()
     ensure_future.assert_called_once_with(reload_marker)
+
+
+@pytest.mark.asyncio
+async def test_response_cache_hit(endpoint):
+    request = Mock()
+    request.uri = b'/dep/api/beta/debian?releases=stretch'
+    request.setETag.return_value = False
+    await endpoint.get(request)
+
+    info = endpoint.cached_build_response.cache_info()
+    assert info.misses == 1
+    assert info.hits == 0
+
+    request2 = Mock()
+    request2.uri = b'/dep/api/beta/debian?releases=stretch'
+    request2.setETag.return_value = False
+    await endpoint.get(request2)
+
+    request2.write.assert_called_with(GET_DATA)
+    info = endpoint.cached_build_response.cache_info()
+    assert info.misses == 1
+    assert info.hits == 1
+
+
+@pytest.mark.asyncio
+async def test_response_cache_normalizes_query(endpoint):
+    request = Mock()
+    request.uri = b'/dep/api/beta/debian?releases=stretch&architectures=amd64'
+    request.setETag.return_value = False
+    await endpoint.get(request)
+
+    request2 = Mock()
+    request2.uri = b'/dep/api/beta/debian?architectures=amd64&releases=stretch'
+    request2.setETag.return_value = False
+    await endpoint.get(request2)
+
+    info = endpoint.cached_build_response.cache_info()
+    assert info.misses == 1
+    assert info.hits == 1
+
+
+@pytest.mark.asyncio
+async def test_response_cache_cleared_after_reload(endpoint):
+    request = Mock()
+    request.uri = b'/dep/api/beta/debian?releases=stretch'
+    request.setETag.return_value = False
+    await endpoint.get(request)
+    assert len(endpoint.response_cache) == 1
+
+    await endpoint.read_data()
+
+    assert len(endpoint.response_cache) == 0

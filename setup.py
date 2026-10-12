@@ -14,14 +14,15 @@ setup(  # pragma: no cover
     author='Matthias Dellweg',
     author_email='dellweg@atix.de',
     url='https://orcharhino.com',
+    python_requires='>=3.9',
     packages=[
         'errata_server',
     ],
     install_requires=[
-        'asyncio',
         'aiofiles',
         'decorator',
         'click',
+        'cachetools==6.2.6',
         'simplejson',
         'twisted',
     ],
