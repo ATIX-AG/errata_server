@@ -1,4 +1,4 @@
-FROM python:3.7-alpine
+FROM python:3.12-alpine
 RUN apk --no-cache add build-base
 WORKDIR /errata_server
 COPY . /errata_server/
